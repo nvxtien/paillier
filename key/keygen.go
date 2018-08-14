@@ -4,8 +4,9 @@ import (
 	"crypto/rand"
 	"fmt"
 	"log"
-	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/paillier/util"
 	"math/big"
+	"crypto/rsa"
 )
 
 var bigOne = big.NewInt(1)
@@ -13,6 +14,8 @@ var bigOne = big.NewInt(1)
 func main()  {
 	//rnd := rand.Reader
 	//fmt.Printf("%s", rnd)
+
+	rsa.GenerateKey()
 
 	bits := 1024
 
@@ -63,8 +66,8 @@ func (k *KeyGen) GenerateKey(bits int) (*PaillierPrivateKey, error)  {
 			log.Fatalf("Can't generate %d-bit prime: %v", bits, err)
 		}
 
-		minprm := math.BigMin(p, q)
-		maxprm := math.BigMax(p, q)
+		minprm := util.BigMin(p, q)
+		maxprm := util.BigMax(p, q)
 		//Make the smallest prime p, maximum q
 		p = minprm
 		q = maxprm
