@@ -4,9 +4,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"log"
-	"github.com/paillier/util"
 	"math/big"
-	"crypto/rsa"
+	"github.com/paillier/paillier"
 )
 
 var bigOne = big.NewInt(1)
@@ -15,16 +14,16 @@ func main()  {
 	//rnd := rand.Reader
 	//fmt.Printf("%s", rnd)
 
-	rsa.GenerateKey()
+	//rsa.GenerateKey()
 
 	bits := 1024
 
-	p := new(KeyGen)
-	priv, err := p.GenerateKey(bits)
+	//p := new(KeyGen)
+	priv, err := paillier.GenerateKey(rand.Reader, bits)
 
 
-	fmt.Printf("d: %d\n", priv.d)
-	fmt.Printf("dInvs: %d\n", priv.dInvs)
+	fmt.Printf("d: %d\n", priv.L)
+	fmt.Printf("dInvs: %d\n", priv.DInvs)
 
 	if err != nil{
 		log.Fatalf("Can't generate %d-bit prime: %v", bits, err)
@@ -51,7 +50,7 @@ type KeyGen struct {
 
 }
 
-func (k *KeyGen) GenerateKey(bits int) (*PaillierPrivateKey, error)  {
+/*func (k *KeyGen) GenerateKey(bits int) (*PaillierPrivateKey, error)  {
 	var p, q *big.Int
 	var err error
 
@@ -114,21 +113,21 @@ func (k *KeyGen) GenerateKey(bits int) (*PaillierPrivateKey, error)  {
 
 	return priv, nil
 }
+*/
 
 
-
-type PaillierPrivateKey struct {
+/*type PaillierPrivateKey struct {
 	PaillierKey
 	d 		*big.Int
 	dInvs 	*big.Int
 
-}
+}*/
 
 //func (priv *PaillierPrivateKey) PaillierPrivateKey(n *big.Int, d *big.Int) () {
 //
 //}
 
-type PaillierKey struct {
+/*type PaillierKey struct {
 	n 	*big.Int
 	g 	*big.Int
-}
+}*/

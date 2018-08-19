@@ -7,6 +7,7 @@ import (
 	"log"
 	"github.com/paillier/util"
 	"io"
+	"github.com/kataras/go-errors"
 )
 
 var bigOne = big.NewInt(1)
@@ -15,7 +16,7 @@ var bigZero = big.NewInt(0)
 type PaillierPrivateKey struct {
 	PaillierKey
 	L 		*big.Int 	// Let λ = lcm(p − 1, q − 1)
-	dInvs 	*big.Int
+	DInvs 	*big.Int
 
 	// Precomputed contains precomputed values that speed up private
 	// operations, if available.
@@ -29,19 +30,39 @@ type PaillierPrivateKey struct {
 type PaillierKey struct {
 	N 			*big.Int
 	G 			*big.Int
-}
-
-type paillier struct {
-
+	NSquared	*big.Int
 }
 
 /*
  * To encrypt a message m ∈ Z*n , randomly chose r ∈ Z*n and compute the ciphertext c = g^m * r^N mod N^2
- * Hint: (g^m * r^N) mod N^2 = (g^m mod N^2 * r^M mod N^2) mod N^2
+ * Hint: (g^m * r^N) mod N^2 = (g^m mod N^2 * r^N mod N^2) mod N^2
  */
-func Encrypt(pk *PaillierKey) (c *big.Int) {
-	//Gm := new(big.Int).
-	//c = new(big.Int).Mul()
+func Encrypt(pk *PaillierKey, m *big.Int) (c *big.Int, err error) {
+	if m.Cmp(pk.N) >= 0 {
+		return nil, errors.New("m must be less than n")
+	}
+
+	r, err := randomZN(pk.N)
+	if err != nil {
+		return nil, err
+	}
+
+	c = new(big.Int).Mod(
+			new(big.Int).Mul(
+				new(big.Int).Exp(pk.G, m, pk.NSquared),
+				new(big.Int).Exp(r, pk.N, pk.NSquared)),
+			pk.NSquared)
+
+	return c, nil
+}
+
+// return a random integer in Zn
+func randomZN(n *big.Int) (r *big.Int, err error) {
+	r, err = rand.Int(rand.Reader, n)
+	if err != nil {
+		return nil, err
+	}
+	return
 }
 
 func GenerateKey(random io.Reader,bits int) (*PaillierPrivateKey, error)  {
@@ -107,11 +128,12 @@ func GenerateKey(random io.Reader,bits int) (*PaillierPrivateKey, error)  {
 
 	priv := new(PaillierPrivateKey)
 	priv.L = d
-	priv.dInvs = new(big.Int).ModInverse(d, n)
+	priv.DInvs = new(big.Int).ModInverse(d, n)
 	priv.N = n
 	priv.G = new(big.Int).Add(n, bigOne)
+	priv.NSquared = new(big.Int).Mul(n, n)
 
-	fmt.Printf("d * dInvs mod n = %d\n", new(big.Int).Mod(new(big.Int).Mul(priv.L, priv.dInvs), n))
+	fmt.Printf("d * dInvs mod n = %d\n", new(big.Int).Mod(new(big.Int).Mul(priv.L, priv.DInvs), n))
 
 	return priv, nil
 }
