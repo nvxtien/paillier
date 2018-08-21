@@ -7,65 +7,44 @@ import (
 	"log"
 	"github.com/paillier/util"
 	"io"
-	"github.com/kataras/go-errors"
+	"errors"
 )
 
 var bigOne = big.NewInt(1)
 var bigZero = big.NewInt(0)
 
-type PaillierPrivateKey struct {
-	PaillierKey
+type PrivateKey struct {
+	PublicKey
 	L 		*big.Int 	// Let λ = lcm(p − 1, q − 1)
-	DInvs 	*big.Int
 
 	// Precomputed contains precomputed values that speed up private
 	// operations, if available.
 	Precomputed PrecomputedValues
 }
 
-//func (priv *PaillierPrivateKey) PaillierPrivateKey(n *big.Int, d *big.Int) () {
-//
-//}
-
-type PaillierKey struct {
+type PublicKey struct {
 	N 			*big.Int
-	G 			*big.Int
 	NSquared	*big.Int
+	G 			*big.Int
 }
 
-/*
- * To encrypt a message m ∈ Z*n , randomly chose r ∈ Z*n and compute the ciphertext c = g^m * r^N mod N^2
- * Hint: (g^m * r^N) mod N^2 = (g^m mod N^2 * r^N mod N^2) mod N^2
- */
-func Encrypt(pk *PaillierKey, m *big.Int) (c *big.Int, err error) {
-	if m.Cmp(pk.N) >= 0 {
-		return nil, errors.New("m must be less than n")
+// return a random integer in Z*n^2
+func randomZStarNSquared(nSquared *big.Int) (r *big.Int, err error) {
+	for {
+		r, err = rand.Int(rand.Reader, nSquared)
+		if err != nil {
+			return nil, err
+		}
+
+		if new(big.Int).GCD(nil, nil, r, nSquared).Cmp(bigOne) == 0 {
+			break
+		}
 	}
 
-	r, err := randomZN(pk.N)
-	if err != nil {
-		return nil, err
-	}
-
-	c = new(big.Int).Mod(
-			new(big.Int).Mul(
-				new(big.Int).Exp(pk.G, m, pk.NSquared),
-				new(big.Int).Exp(r, pk.N, pk.NSquared)),
-			pk.NSquared)
-
-	return c, nil
-}
-
-// return a random integer in Zn
-func randomZN(n *big.Int) (r *big.Int, err error) {
-	r, err = rand.Int(rand.Reader, n)
-	if err != nil {
-		return nil, err
-	}
 	return
 }
 
-func GenerateKey(random io.Reader,bits int) (*PaillierPrivateKey, error)  {
+func GenerateKey(random io.Reader,bits int) (*PrivateKey, error)  {
 	var p, q *big.Int
 	var err error
 
@@ -126,60 +105,94 @@ func GenerateKey(random io.Reader,bits int) (*PaillierPrivateKey, error)  {
 	d := new(big.Int).Div(phi, gcd)
 	fmt.Printf("lcm: %d\n", d)
 
-	priv := new(PaillierPrivateKey)
+	priv := new(PrivateKey)
 	priv.L = d
-	priv.DInvs = new(big.Int).ModInverse(d, n)
 	priv.N = n
-	priv.G = new(big.Int).Add(n, bigOne)
 	priv.NSquared = new(big.Int).Mul(n, n)
+	priv.G, err = randomZStarNSquared(priv.NSquared)
+	if err != nil {
+		return nil, err
+	}
 
-	fmt.Printf("d * dInvs mod n = %d\n", new(big.Int).Mod(new(big.Int).Mul(priv.L, priv.DInvs), n))
+	//fmt.Printf("d * dInvs mod n = %d\n", new(big.Int).Mod(new(big.Int).Mul(priv.L, priv.DInvs), n))
+
+	priv.Precompute()
 
 	return priv, nil
 }
 
+// return a random integer in Z*n
+func randomZStarN(n *big.Int) (r *big.Int, err error) {
+	for {
+		r, err = rand.Int(rand.Reader, n)
+		if err != nil {
+			return nil, err
+		}
+		if new(big.Int).GCD(nil, nil, r, n).Cmp(bigOne) == 0 {
+			break
+		}
+	}
+
+	return
+}
+
+/*
+ * To encrypt a message m ∈ Zn , randomly chose r ∈ Z*n and compute the ciphertext c = g^m * r^N mod N^2
+ * Hint: (g^m * r^N) mod N^2 = (g^m mod N^2 * r^N mod N^2) mod N^2
+ */
+func Encrypt(pub *PublicKey, m *big.Int) (c *big.Int, err error) {
+	if m.Cmp(pub.N) >= 0 {
+		return nil, errors.New("m must be less than n")
+	}
+
+	r, err := randomZStarN(pub.N)
+	if err != nil {
+		return nil, err
+	}
+
+	c = new(big.Int).Mod(
+		new(big.Int).Mul(
+			new(big.Int).Exp(pub.G, m, pub.NSquared),
+			new(big.Int).Exp(r, pub.N, pub.NSquared)),
+		pub.NSquared)
+
+	return c, nil
+}
+
+/*
+ * Compute m ≡ L(c^λ(n) mod n^2) * k^-1 mod n
+ */
+func Decrypt(priv *PrivateKey, c *big.Int) (m *big.Int, err error) {
+	if c.Cmp(priv.NSquared) >= 0 {
+		return nil, errors.New("c must be less than n squared")
+	}
+	u  := new(big.Int).Exp(c, priv.L, priv.NSquared)
+	Lu := new(big.Int).Div(new(big.Int).Sub(u, bigOne), priv.N)
+	m = new(big.Int).Mod(new(big.Int).Mul(Lu, priv.Precomputed.Mu), priv.N)
+	return
+}
+
+// D[E(m1)·E(m2) mod n^2] ≡ m1 + m2 mod n
+func AddCipher(pub *PublicKey, c1, c2 *big.Int) (c *big.Int, err error) {
+	c = new(big.Int).Mod(new(big.Int).Mul(c1, c2), pub.NSquared)
+	return c, nil
+}
+
 type PrecomputedValues struct {
-	Dp, Dq *big.Int // D mod (P-1) (or mod Q-1)
-	Qinv   *big.Int // Q^-1 mod P
-
-	NSquared 	*big.Int
-
-	// CRTValues is used for the 3rd and subsequent primes. Due to a
-	// historical accident, the CRT for the first two primes is handled
-	// differently in PKCS#1 and interoperability is sufficiently
-	// important that we mirror this.
-	//CRTValues []CRTValue
+	Mu 	*big.Int
 }
 
 // Precompute performs some calculations that speed up private key operations
 // in the future.
-func (priv *PaillierPrivateKey) Precompute() {
-	if priv.Precomputed.Dp != nil {
+func (priv *PrivateKey) Precompute() {
+	if priv.Precomputed.Mu != nil {
 		return
 	}
 
-	priv.Precomputed.NSquared = new(big.Int).Mul(priv.N, priv.N)
-
-	/*priv.Precomputed.Dp = new(big.Int).Sub(priv.Primes[0], bigOne)
-	priv.Precomputed.Dp.Mod(priv.D, priv.Precomputed.Dp)
-
-	priv.Precomputed.Dq = new(big.Int).Sub(priv.Primes[1], bigOne)
-	priv.Precomputed.Dq.Mod(priv.D, priv.Precomputed.Dq)
-
-	priv.Precomputed.Qinv = new(big.Int).ModInverse(priv.Primes[1], priv.Primes[0])
-
-	r := new(big.Int).Mul(priv.Primes[0], priv.Primes[1])
-	priv.Precomputed.CRTValues = make([]CRTValue, len(priv.Primes)-2)
-	for i := 2; i < len(priv.Primes); i++ {
-		prime := priv.Primes[i]
-		values := &priv.Precomputed.CRTValues[i-2]
-
-		values.Exp = new(big.Int).Sub(prime, bigOne)
-		values.Exp.Mod(priv.D, values.Exp)
-
-		values.R = new(big.Int).Set(r)
-		values.Coeff = new(big.Int).ModInverse(r, prime)
-
-		r.Mul(r, prime)
-	}*/
+	// Define L(u) = (u – 1)/n
+	// Compute L(g^λ(n) mod n^2) = k
+	// Compute μ ≡ k^–1 mod n
+	u := new(big.Int).Exp(priv.G, priv.L, priv.NSquared)
+	k := new(big.Int).Div(u.Sub(u, bigOne), priv.N)
+	priv.Precomputed.Mu = new(big.Int).ModInverse(k, priv.N)
 }
