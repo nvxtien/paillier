@@ -36,6 +36,10 @@ func randomZStarNSquared(nSquared *big.Int) (r *big.Int, err error) {
 			return nil, err
 		}
 
+		if r.Sign() <= 0 {
+			continue
+		}
+
 		if new(big.Int).GCD(nil, nil, r, nSquared).Cmp(bigOne) == 0 {
 			break
 		}
@@ -123,6 +127,11 @@ func randomZStarN(n *big.Int) (r *big.Int, err error) {
 		if err != nil {
 			return nil, err
 		}
+
+		if r.Sign() <= 0 {
+			continue
+		}
+
 		if new(big.Int).GCD(nil, nil, r, n).Cmp(bigOne) == 0 {
 			break
 		}
