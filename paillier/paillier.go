@@ -28,7 +28,7 @@ type PublicKey struct {
 	G 			*big.Int
 }
 
-// return a random integer in Z*n^2
+// return a random, none-zero number in Z*n^2
 func randomZStarNSquared(nSquared *big.Int) (r *big.Int, err error) {
 	for {
 		r, err = rand.Int(rand.Reader, nSquared)
@@ -120,7 +120,7 @@ func GenerateKey(random io.Reader,bits int) (*PrivateKey, error)  {
 	return priv, nil
 }
 
-// return a random integer in Z*n
+// return a random, none-zero number in Z*n
 func randomZStarN(n *big.Int) (r *big.Int, err error) {
 	for {
 		r, err = rand.Int(rand.Reader, n)
