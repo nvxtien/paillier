@@ -15,7 +15,7 @@ var bigZero = big.NewInt(0)
 
 type PrivateKey struct {
 	PublicKey
-	L 		*big.Int 	// Let λ = lcm(p − 1, q − 1)
+	L	*big.Int 	// Let λ = lcm(p − 1, q − 1)
 
 	// Precomputed contains precomputed values that speed up private
 	// operations, if available.
@@ -23,7 +23,7 @@ type PrivateKey struct {
 }
 
 type PublicKey struct {
-	N 			*big.Int
+	N			*big.Int
 	NSquared	*big.Int
 	G 			*big.Int
 }
@@ -66,13 +66,10 @@ func GenerateKey(random io.Reader,bits int) (*PrivateKey, error)  {
 		q = maxprm
 
 		// Now verify that p-1 does not divide q
-
 		if new(big.Int).Mod(q, new(big.Int).Sub(p, bigOne)).Cmp(bigZero) == 0 {
-			//break
 			fmt.Print("p-1 does divide q")
 			continue
 		}
-
 
 		// Make sure that primes is pairwise unequal
 		if p.Cmp(q) == 0 {
@@ -113,8 +110,6 @@ func GenerateKey(random io.Reader,bits int) (*PrivateKey, error)  {
 	if err != nil {
 		return nil, err
 	}
-
-	//fmt.Printf("d * dInvs mod n = %d\n", new(big.Int).Mod(new(big.Int).Mul(priv.L, priv.DInvs), n))
 
 	priv.Precompute()
 

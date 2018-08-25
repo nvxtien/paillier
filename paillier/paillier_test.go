@@ -17,20 +17,13 @@ func TestKeyGeneration(t *testing.T) {
 	if bits := priv.N.BitLen(); bits != size {
 		t.Errorf("key too short (%d vs %d)", bits, size)
 	}
-	testKeyBasics(t, priv)
+	testKeys(t, priv)
 
 	testAdd(t, priv)
 }
 
-func testKeyBasics(t *testing.T, priv *PrivateKey) {
-	/*if err := priv.Validate(); err != nil {
-		t.Errorf("Validate() failed: %s", err)
-	}
-	if priv.D.Cmp(priv.N) > 0 {
-		t.Errorf("private exponent too large")
-	}
-*/
-	//priv, _ = GenerateKey(rand.Reader, 1024)
+func testKeys(t *testing.T, priv *PrivateKey) {
+
 	pub := &priv.PublicKey
 	m := big.NewInt(42)
 	c, _ :=  Encrypt(pub, m)
